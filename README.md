@@ -7,7 +7,7 @@ Composer developers can use this CI/CD pipeline to easily deploy new versions of
 
 The Existing CICD approach can he found at https://github.com/gabog/ComposerCICDSamples . This pipeline has only build pipeline and no release pipeline with single stage deployment. 
 
-This sample code will enhance the existing CICD Pipeline for Bot Composer Framework further in the following ways: 
+# This sample code will enhance the existing CICD Pipeline for Bot Composer Framework further in the following ways: 
   
   a. Multi stage deployments are implemented for multiple environments.  
   
