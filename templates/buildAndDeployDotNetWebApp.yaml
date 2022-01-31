@@ -1,0 +1,307 @@
+# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License.
+#
+# Builds, deploys and configures the bot's dotnet web app
+# 
+
+parameters:
+- name: sourceDirectory
+  displayName: Directory to the source code in the build pipeline
+  type: string
+
+- name: azureServiceConnection
+  displayName: Azure Service Connection
+  type: string
+
+- name: webAppName
+  displayName: Azure web app name
+  type: string
+
+- name: resourceGroupName
+  displayName: Resource group
+  type: string
+
+- name: botProjectFile
+  displayName: Bot project to build and deploy
+  type: string
+
+- name: RedisConnectionString
+  displayName: RedisConnectionString
+  type: string
+  
+- name: botName
+  displayName: Bot name
+  type: string
+
+- name: microsoftAppId
+  displayName: Bot's Microsoft app ID
+  type: string
+
+- name: microsoftAppPassword
+  displayName: Bot's Microsoft app Password
+  type: string
+
+- name: luisEndpoint
+  displayName: LUIS endpoint
+  type: string
+
+- name: luisEndpointKey
+  displayName: LUIS endpoint key
+  type: string
+
+- name: aPPLICATIONINSIGHTS_CONNECTION_STRING
+  displayName: aPPLICATIONINSIGHTS_CONNECTION_STRING
+  type: string
+  
+- name: qnaAppInsightsApiKey
+  displayName: qnaAppInsightsApiKey
+  type: string
+
+- name: bingSpellCheckKey
+  displayName: bingSpellCheckKey
+  type: string
+
+- name: contentModeratorKey
+  displayName: contentModeratorKey
+  type: string
+
+- name: qnaSubscriptionKey
+  displayName: QnA Maker subscription key
+  type: string
+
+- name: qnaEndpointKey
+  displayName: QnA Maker endpoint key
+  type: string
+
+- name: qnaHostName
+  displayName: QnA Maker host name
+  type: string
+
+- name: qnaKnowledgebaseId
+  displayName: QnA Maker knowledgebase ID
+  type: string
+
+- name: qnaRegion
+  displayName: QnA Maker region
+  type: string
+  
+- name: funcAppName
+  displayName: funcAppName
+  type: string
+  
+- name: funcProjectFile
+  displayName: funcProjectFile
+  type: string
+
+- name: directlineKey
+  displayName: directlineKey
+  type: string
+
+- name: directlineUri
+  displayName: directlineUri
+  type: string
+  
+- name: cosmosDBEndpoint
+  displayName: cosmosDBEndpoint
+  type: string
+
+- name: cosmosAuthKey
+  displayName: cosmosAuthKey
+  type: string
+
+steps:
+
+# Build conversation id gen
+# Note: this step also packages the generated folder created by the buildAndDeployModels yaml script.
+# https://stackoverflow.com/questions/63788646/naming-resulting-zip-archive-in-azure-pipelines-build
+- task: DotNetCoreCLI@2
+  displayName: "Build the conversation Id gen publishing package"
+  inputs:
+    command: "publish"
+    projects: "${{ parameters.funcProjectFile }}"
+    publishWebProjects: false #setting it to false to make sure only this csproj gets compiled and published.
+    arguments: "--output $(System.DefaultWorkingDirectory)/output/func/zipDeploy"
+    zipAfterPublish: True
+
+# Publish output artifacts to Azure DevOps
+- task: PublishBuildArtifacts@1
+  displayName: "Publish conversation build artifacts"
+  inputs:
+    pathtoPublish: "$(System.DefaultWorkingDirectory)/output/func/zipDeploy" 
+    artifactName: "FuncBuildArtifacts-$(Build.BuildId)"
+
+# Deploy the web app to azure
+- task: AzureWebApp@1
+  displayName: "Deploy Azure Web App: ${{ parameters.funcAppName }}"
+  inputs:
+    azureSubscription: ${{ parameters.azureServiceConnection }}
+    appName: "${{ parameters.funcAppName }}"
+    resourceGroupName: "${{ parameters.resourceGroupName }}"
+    package: "$(System.DefaultWorkingDirectory)/output/func/zipDeploy/ConversationIdGeneratorFunction.zip"
+    deploymentMethod: zipDeploy
+
+# Configure web appSettings
+- task: AzureAppServiceSettings@1
+  displayName: "Configure func App Service Settings"
+  inputs:
+    azureSubscription: "${{ parameters.azureServiceConnection }}"
+    appName: "${{ parameters.funcAppName }}"
+    # To deploy the settings on a slot, provide slot name as below (e.g: slotName: staging). 
+    # By default, the settings would be applied to the actual Web App (Production slot) 
+    appSettings: |
+      [
+        {
+          "name": "DirectlineKey",
+          "value": "${{ parameters.directlineKey }}",
+          "slotSetting": false
+        },
+        {
+          "name": "DirectlineUri",
+          "value": "${{ parameters.directlineUri }}",
+          "slotSetting": false
+        }
+      ]
+
+
+  # Update appsettings.json via FileTransform task.
+- task: FileTransform@1
+  displayName: 'File transformation: appsettings.json'
+  inputs:
+    folderPath: '${{ parameters.sourceDirectory }}'
+    targetFiles: '**/appsettings.json'
+    fileType: json
+  
+# Build bot
+# Note: this step also packages the generated folder created by the buildAndDeployModels yaml script.
+# https://stackoverflow.com/questions/63788646/naming-resulting-zip-archive-in-azure-pipelines-build
+- task: DotNetCoreCLI@2
+  displayName: "Build the bot publishing package"
+  inputs:
+    command: "publish"
+    projects: "${{ parameters.botProjectFile }}"
+    publishWebProjects: false #setting it to false to make sure only this csproj gets compiled and published.
+    arguments: "--output $(System.DefaultWorkingDirectory)/output/zipDeploy"
+    zipAfterPublish: True
+
+# Publish output artifacts to Azure DevOps
+- task: PublishBuildArtifacts@1
+  displayName: "Publish build artifacts"
+  inputs:
+    pathtoPublish: "$(System.DefaultWorkingDirectory)/output/zipDeploy" 
+    artifactName: "BuildArtifacts-$(Build.BuildId)"
+    parallel: true
+    parallelCount: 2
+
+# Deploy the web app to azure
+- task: AzureWebApp@1
+  displayName: "Deploy Azure Web App: ${{ parameters.webAppName }}"
+  inputs:
+    azureSubscription: ${{ parameters.azureServiceConnection }}
+    appName: "${{ parameters.webAppName }}"
+    resourceGroupName: "${{ parameters.resourceGroupName }}"
+    package: "$(System.DefaultWorkingDirectory)/output/zipDeploy/LinkEnterpriseAssistant.zip"
+    deploymentMethod: zipDeploy
+
+# Configure web appSettings
+- task: AzureAppServiceSettings@1
+  displayName: "Configure App Service Settings"
+  inputs:
+    azureSubscription: "${{ parameters.azureServiceConnection }}"
+    appName: "${{ parameters.webAppName }}"
+    # To deploy the settings on a slot, provide slot name as below (e.g: slotName: staging). 
+    # By default, the settings would be applied to the actual Web App (Production slot) 
+    appSettings: |
+      [
+        {
+          "name": "MicrosoftAppId",
+          "value": "${{ parameters.microsoftAppId }}",
+          "slotSetting": false
+        },
+        {
+          "name": "MicrosoftAppPassword",
+          "value": "${{ parameters.microsoftAppPassword }}",
+          "slotSetting": false
+        },
+        {
+          "name": "luis__endpoint",
+          "value": "${{ parameters.luisEndpoint }}",
+          "slotSetting": false
+        },
+        {
+          "name": "luis__endpointKey",
+          "value": "${{ parameters.luisEndpointKey }}",
+          "slotSetting": false
+        },
+        {
+          "name": "qna__hostname",
+          "value": "${{ parameters.qnaHostName }}",
+          "slotSetting": false
+        },
+        {
+          "name": "qna__knowledgebaseid",
+          "value": "${{ parameters.qnaKnowledgebaseId }}",
+          "slotSetting": false
+        },
+        {
+          "name": "qna__qnaRegion",
+          "value": "${{ parameters.qnaRegion }}",
+          "slotSetting": false
+        },
+        {
+          "name": "qna__subscriptionKey",
+          "value": "${{ parameters.qnaSubscriptionKey }}",
+          "slotSetting": false
+        },
+        {
+          "name": "APPLICATIONINSIGHTS_CONNECTION_STRING",
+          "value": "${{ parameters.aPPLICATIONINSIGHTS_CONNECTION_STRING }}",
+          "slotSetting": false
+        },
+        {
+          "name": "runtimeSettings__telemetry__options__connectionString",
+          "value": "${{ parameters.aPPLICATIONINSIGHTS_CONNECTION_STRING }}",
+          "slotSetting": false
+        },
+        {
+          "name": "CustomPIIkey__contentModeratorKey",
+          "value": "${{ parameters.contentModeratorKey }}",
+          "slotSetting": false
+        },
+        {
+          "name": "BingSpellCheck__BingSpellCheckKey",
+          "value": "${{ parameters.bingSpellCheckKey }}",
+          "slotSetting": false
+        },
+        {
+          "name": "QnaMaker__subscriptionKey",
+          "value": "${{ parameters.qnaSubscriptionKey }}",
+          "slotSetting": false
+        },
+        {
+          "name": "QnaAppInsights__ApiKey",
+          "value": "${{ parameters.qnaAppInsightsApiKey }}",
+          "slotSetting": false
+        },
+        {
+          "name": "qnaSpanish__subscriptionKey",
+          "value": "${{ parameters.qnaSubscriptionKey }}",
+          "slotSetting": false
+        }, 
+        {
+          "name": "RedisConnectionStringValue",
+          "value": "${{ parameters.RedisConnectionString }}",
+          "slotSetting": false
+        },
+        {
+          "name": "cosmosDb__Endpoint",
+          "value": "${{ parameters.cosmosDBEndpoint }}",
+          "slotSetting": false
+        },
+        {
+          "name": "cosmosDb__authKey",
+          "value": "${{ parameters.cosmosAuthKey }}",
+          "slotSetting": false
+        }
+      ]
+
+      

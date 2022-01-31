@@ -1,0 +1,144 @@
+# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License.
+#
+# Starter pipeline
+# Minimal pipeline to deploy a basic assistant bot that you can customize to build and deploy your code.
+# Add steps that build, run tests, deploy, and more:
+# https://aka.ms/yaml
+#
+
+trigger:
+  branches:
+    include:
+      - main
+
+  paths:
+    include:
+      - {project directory}/*
+
+parameters:
+  - name: deployModels
+    type: string
+    default: yes
+    values: 
+      - yes
+      - no
+    displayName: Build and deploy LUIS and QnA Maker models
+
+  - name: deployWebApp
+    type: string
+    default: yes
+    values: 
+      - yes
+      - no
+    displayName: Deploy and configure web app
+
+variables:
+- name: UseRedisSetting
+  value: true
+
+pool:
+ vmImage: ubuntu-latest
+
+stages:
+  - stage: Dev
+    displayName: Dev
+
+    variables:
+      # a variable group
+      - group: bot-dev-shared
+      - group: bot-dev-kv
+
+    jobs:
+    - deployment: DeployWeb
+      environment: 'dev'
+    - job: "Build_And_Deploy"
+      steps:
+      - checkout: self
+        fetchDepth: 1
+        clean: true
+      # Deploy the resources in Dev
+      - template: buildAndDeploy.yaml
+        parameters:
+          microsoftAppPassword: "@Microsoft.KeyVault(SecretUri=https://{keyvault url}/secrets/MicrosoftAppPassword)"
+          lUISEndPointKEYSecret: "@Microsoft.KeyVault(SecretUri=https://{keyvault url}/secrets/LuisEndpointKey)"
+          qnaMakerSubscriptionKeySecret: "@Microsoft.KeyVault(SecretUri=https://{keyvault url}/secrets/QnaSubscriptionKey)"
+          qnaMakerEndpointKeySecret: "@Microsoft.KeyVault(SecretUri=https://{keyvault url}/secrets/QnaEndpointKey)"
+          aPPLICATIONINSIGHTS_CONNECTION_STRING: "@Microsoft.KeyVault(SecretUri=https://{keyvault url}/secrets/AppInsightsConnectionString)"
+          bingSpellCheckKey: "@Microsoft.KeyVault(SecretUri=https://{keyvault url}/secrets/BingSpellCheckKey)"
+          contentModeratorKey: "@Microsoft.KeyVault(SecretUri=https://{keyvault url}/secrets/ContentModeratorKey)"
+          qnaAppInsightsApiKey: "@Microsoft.KeyVault(SecretUri=https://{keyvault url}/secrets/QnaAppInsightsApiKey)"
+          funcAppName: "wflink-func-bot-tst-eu"
+          cosmosAuthKey: "@Microsoft.KeyVault(SecretUri=https://{keyvault url}/secrets/CosmosAuthKey)"
+          cosmosDBEndpoint: "https://CosmosDBUrl:443/"
+          directlineKey: "@Microsoft.KeyVault(SecretUri=https://{keyvault url}/secrets/BotDirectlineValue)"
+          RedisConnectionString: "@Microsoft.KeyVault(SecretUri=https://{keyvault url}/secrets/RedisConnectionString)"
+
+  - stage: Test
+    displayName: Test
+    dependsOn: Dev
+
+    variables:
+      # a variable group
+      - group: bot-test-shared
+
+    jobs:
+    - deployment: DeployWeb
+      environment: 'tst'
+    - job: "Build_And_Deploy"
+      steps:
+      - checkout: self
+        fetchDepth: 1
+        clean: true
+      # Deploy the resources in Test
+      - template: buildAndDeploy.yaml
+        parameters:
+          microsoftAppPassword: "@Microsoft.KeyVault(SecretUri=https://{keyvault url}/secrets/MicrosoftAppPassword)"
+          lUISEndPointKEYSecret: "@Microsoft.KeyVault(SecretUri=https://{keyvault url}/secrets/LuisEndpointKey)"
+          qnaMakerSubscriptionKeySecret: "@Microsoft.KeyVault(SecretUri=https://{keyvault url}/secrets/QnaSubscriptionKey)"
+          qnaMakerEndpointKeySecret: "@Microsoft.KeyVault(SecretUri=https://{keyvault url}/secrets/QnaEndpointKey)"
+          aPPLICATIONINSIGHTS_CONNECTION_STRING: "@Microsoft.KeyVault(SecretUri=https://{keyvault url}/secrets/AppInsightsConnectionString)"
+          bingSpellCheckKey: "@Microsoft.KeyVault(SecretUri=https://{keyvault url}/secrets/BingSpellCheckKey)"
+          contentModeratorKey: "@Microsoft.KeyVault(SecretUri=https://{keyvault url}/secrets/ContentModeratorKey)"
+          qnaAppInsightsApiKey: "@Microsoft.KeyVault(SecretUri=https://{keyvault url}/secrets/QnaAppInsightsApiKey)"
+          funcAppName: "wflink-func-bot-tst-eu"
+          cosmosAuthKey: "@Microsoft.KeyVault(SecretUri=https://{keyvault url}/secrets/CosmosAuthKey)"
+          cosmosDBEndpoint: "https://CosmosDBUrl:443/"
+          directlineKey: "@Microsoft.KeyVault(SecretUri=https://{keyvault url}/secrets/BotDirectlineValue)"
+          RedisConnectionString: "@Microsoft.KeyVault(SecretUri=https://{keyvault url}/secrets/RedisConnectionString)"
+
+      
+  - stage: Prod
+    displayName: Prod
+    dependsOn: Test
+
+    variables:
+      # a variable group
+      - group: bot-prod-shared
+     
+
+    jobs:
+    - deployment: DeployWeb
+      environment: 'prod'
+    - job: "Build_And_Deploy"
+      steps:
+      - checkout: self
+        fetchDepth: 1
+        clean: true
+      # Deploy the resources in Prod
+      - template: buildAndDeploy.yaml
+        parameters:
+          parameters:
+          microsoftAppPassword: "@Microsoft.KeyVault(SecretUri=https://{keyvault url}/secrets/MicrosoftAppPassword)"
+          lUISEndPointKEYSecret: "@Microsoft.KeyVault(SecretUri=https://{keyvault url}/secrets/LuisEndpointKey)"
+          qnaMakerSubscriptionKeySecret: "@Microsoft.KeyVault(SecretUri=https://{keyvault url}/secrets/QnaSubscriptionKey)"
+          qnaMakerEndpointKeySecret: "@Microsoft.KeyVault(SecretUri=https://{keyvault url}/secrets/QnaEndpointKey)"
+          aPPLICATIONINSIGHTS_CONNECTION_STRING: "@Microsoft.KeyVault(SecretUri=https://{keyvault url}/secrets/AppInsightsConnectionString)"
+          bingSpellCheckKey: "@Microsoft.KeyVault(SecretUri=https://{keyvault url}/secrets/BingSpellCheckKey)"
+          contentModeratorKey: "@Microsoft.KeyVault(SecretUri=https://{keyvault url}/secrets/ContentModeratorKey)"
+          qnaAppInsightsApiKey: "@Microsoft.KeyVault(SecretUri=https://{keyvault url}/secrets/QnaAppInsightsApiKey)"
+          funcAppName: "wflink-func-bot-tst-eu"
+          cosmosAuthKey: "@Microsoft.KeyVault(SecretUri=https://{keyvault url}/secrets/CosmosAuthKey)"
+          cosmosDBEndpoint: "https://CosmosDBUrl:443/"
+          directlineKey: "@Microsoft.KeyVault(SecretUri=https://{keyvault url}/secrets/BotDirectlineValue)"
+          RedisConnectionString: "@Microsoft.KeyVault(SecretUri=https://{keyvault url}/secrets/RedisConnectionString)"

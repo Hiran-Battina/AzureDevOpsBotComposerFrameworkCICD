@@ -1,0 +1,167 @@
+﻿# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License.
+#
+# Builds, deploys and train language models (LUIS, QnA Maker and Orchestrator)
+#
+
+parameters:
+- name: sourceDirectory
+  displayName: Directory to the source code in the build pipeline
+  type: string
+
+- name: botName
+  displayName: Bot name
+  type: string
+
+- name: luisAuthoringKey
+  displayName: LUIS authoring key
+  type: string
+
+- name: luisAuthoringRegion
+  displayName: LUIS authoring region
+  type: string
+
+- name: luisResourceGroup
+  displayName: LUIS resource group name
+  type: string
+
+- name: luisAuthoringEndpoint
+  displayName: LUIS Authoring Endpoint
+  type: string
+
+- name: luisPredictionResourceName
+  displayName: LUIS Prediction Resource Name
+  type: string
+
+- name: qnaSubscriptionKey
+  displayName: QnA Maker subscription key
+  type: string
+
+- name: qnaSourceKbId
+  displayName: QnA Maker source kb Id
+  type: string
+
+- name: knowledgeBasePath
+  displayName: QnA Maker kb path in code.
+  type: string
+
+- name: qnaSpanishSourceKbId
+  displayName: QnA Maker spanish source kb Id
+  type: string
+
+- name: spanishKnowledgeBasePath
+  displayName: QnA Maker spanish kb path in code.
+  type: string
+
+
+steps:
+# Import the QNAMaker KB into the repository
+
+- task: PowerShell@2
+  displayName: "Import the QNAMaker KB"
+  inputs:
+    targetType: "inline"
+    script: |
+      bf qnamaker:kb:export --out "${{ parameters.knowledgeBasePath }}" --subscriptionKey "${{ parameters.qnaSubscriptionKey }}" --kbId="${{parameters.qnaSourceKbId}}" --qnaFormat --force 
+      bf qnamaker:kb:export --out "${{ parameters.spanishKnowledgeBasePath }}" --subscriptionKey "${{ parameters.qnaSubscriptionKey }}" --kbId="${{parameters.qnaSpanishSourceKbId}}" --qnaFormat --force 
+
+# Publish output artifacts to Azure DevOps
+- task: PublishBuildArtifacts@1
+  displayName: "Publish generated english Qna kb"
+  inputs:
+    pathtoPublish: "${{ parameters.knowledgeBasePath }}" 
+    artifactName: "English-KB-$(Build.BuildId)"
+
+# Publish output artifacts to Azure DevOps
+- task: PublishBuildArtifacts@1
+  displayName: "Publish generated spanish Qna kb"
+  inputs:
+    pathtoPublish: "${{ parameters.spanishKnowledgeBasePath }}" 
+    artifactName: "Spanish-KB-$(Build.BuildId)"
+
+# Prepare working folders
+- task: PowerShell@2
+  displayName: "Prepare working folders"
+  inputs:
+    targetType: "inline"
+    script: |
+      $generatedDirectory = "${{ parameters.sourceDirectory }}/generated"
+      
+      # Clean and recreate the generated directory
+      if (Test-Path $generatedDirectory)
+      {
+        Remove-Item -Path $generatedDirectory -Force -Recurse
+      }
+
+      $outputDirectory = "$generatedDirectory/interruption"
+      New-Item -Path /. -name $outputDirectory -ItemType "directory"
+
+# Cross train LU models
+- task: PowerShell@2
+  displayName: "Cross train LU models"
+  inputs:
+    targetType: "inline"
+    script: |
+      $sourceDirectory = "${{ parameters.sourceDirectory }}"
+      $outputDirectory = "${{ parameters.sourceDirectory }}/generated/interruption"
+
+      # Cross train models
+      bf luis:cross-train --in $sourceDirectory --out $outputDirectory --config $sourceDirectory/settings/cross-train.config.json --force
+
+      # List generated files
+      cd $outputDirectory
+      ls -R
+
+# Publish LUIS models
+- task: AzureCLI@2
+  displayName: "Publish LUIS"
+  inputs:
+    azureSubscription: $(azureServiceConnection)
+    scriptType: 'pscore'
+    scriptLocation: 'scriptPath'
+    scriptPath: '$(System.DefaultWorkingDirectory)/Pipelines/templates/Build-LUIS.ps1'
+    arguments: '-outputDirectory ./generated -sourceDirectory ${{ parameters.sourceDirectory }} -crossTrainedLUDirectory ./generated/interruption -authoringKey ${{ parameters.luisAuthoringKey }} -botName ${{ parameters.botName }} -resourceGroupName ${{ parameters.luisResourceGroup }} -endpoint ${{ parameters.luisAuthoringEndpoint }} -luisPredictionResourceName ${{ parameters.luisPredictionResourceName }}'
+    addSpnToEnvironment: true 
+     # Note: the working directory needs to be set to the bot's source directory
+    # to allow for the creation of relative paths in the generated config files.
+    workingDirectory: '${{ parameters.sourceDirectory }}'
+
+# Publish QnA Maker KBs
+- task: PowerShell@2
+  displayName: "Publish QnA"
+  inputs:
+    targetType: "inline"
+    script: |
+      $sourceDirectory = "${{ parameters.sourceDirectory }}/generated/interruption"
+      $outputDirectory = "${{ parameters.sourceDirectory }}/generated"
+      
+      # Build, train and publish the QnA maker models
+      bf qnamaker:build --out $outputDirectory --in $sourceDirectory --subscriptionKey ${{ parameters.qnaSubscriptionKey }} --botName ${{ parameters.botName }} --suffix composer --force --log
+
+# Publish Orchestrator models
+- task: PowerShell@2
+  displayName: "Publish orchestrator"
+  inputs:
+    targetType: "filePath"
+    filePath: "$(System.DefaultWorkingDirectory)/Pipelines/templates/Build-Orchestrator.ps1"
+    arguments: -outputDirectory ./generated -sourceDirectory ./ -crossTrainedLUDirectory ./generated/interruption -appSettingsFile ./settings/appsettings.json
+    # Note: the working directory needs to be set to the bot's source directory
+    # to allow for the creation of relative paths in the generated config files.
+    workingDirectory: ${{ parameters.sourceDirectory }}
+
+# Compress generated folder
+- task: ArchiveFiles@2
+  displayName: "Compress generated files"
+  inputs:
+    rootFolderOrFile: "${{ parameters.sourceDirectory }}/generated"
+    includeRootFolder: true
+    archiveType: "zip"
+    archiveFile: "$(System.DefaultWorkingDirectory)/output/generated.zip"
+    verbose: true
+
+# Publish output artifacts to Azure DevOps
+- task: PublishBuildArtifacts@1
+  displayName: "Publish generated artifacts"
+  inputs:
+    pathtoPublish: "$(System.DefaultWorkingDirectory)/output/generated.zip" 
+    artifactName: "BuildArtifacts-$(Build.BuildId)"

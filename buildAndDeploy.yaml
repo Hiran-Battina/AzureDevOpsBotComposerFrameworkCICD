@@ -1,0 +1,265 @@
+# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License.
+#
+# Starter pipeline
+# Minimal pipeline to deploy a basic assistant bot that you can customize to build and deploy your code.
+# Add steps that build, run tests, deploy, and more:
+# https://aka.ms/yaml
+#
+
+# trigger:
+# - none
+
+# pool:
+#   vmImage: ubuntu-latest
+
+#telemetry.options.connectionString
+
+# These parameters map Azure DevOps pipeline variables to paramaters 
+# that are used in # the different pipeline tasks.
+parameters:
+- name: azureServiceConnection
+  displayName: Azure service connection
+  type: string
+  default: $(AZURESERVICECONNECTION)
+
+- name: botName
+  displayName: Bot name
+  type: string
+  default: $(BOTNAME)
+
+- name: microsoftAppId
+  displayName: Bot"s Microsoft app ID
+  type: string
+  default: $(MicrosoftAppId)
+
+- name: microsoftAppPassword
+  displayName: Bot"s Microsoft app password
+  type: string
+  default: $(MICROSOFTAPPPASSWORD)
+
+- name: resourceGroupName
+  displayName: Azure resource group
+  type: string
+  default: $(RESOURCEGROUPNAME)
+
+- name: webAppName
+  displayName: Azure web app name
+  type: string
+  default: $(WEBAPPNAME)
+
+- name: botProjectDirectory
+  displayName: Relative path to the bot"s csproj file
+  type: string
+  default: $(BOTPROJECTDIRECTORY)
+  
+- name: knowledgeBasePath
+  displayName: Relative path to qnamaker kb path english source
+  type: string
+  default: $(KNOWLEDGEBASEPATH)
+  
+- name: spanishKnowledgeBasePath
+  displayName: Relative path to qnamaker kb path spanish source
+  type: string
+  default: $(SPANISHKNOWLEDGEBASEPATH)
+  
+- name: botProjectName
+  displayName: Bot"s project name (csproj)
+  type: string
+  default: $(BOTPROJECTNAME)
+
+# LUIS Parameters
+# General
+- name: luisAppId
+  displayName: LUIS app ID
+  type: string
+  default: $(LUISAPPID)
+  
+# LUIS Authoring (used to build, train and publish LUIS models)
+- name: luisAuthoringRegion
+  displayName: LUIS authoring region
+  type: string
+  default: $(LUISAUTHORINGREGION)
+
+- name: luisPredictionResourceName
+  displayName: LUIS Prediction Resource Name
+  type: string
+  default: $(PREDICTIONRESOURCENAME)
+
+- name: luisAuthoringEndpoint
+  displayName: LUIS authoring endpoint
+  type: string
+  default: $(luis.authoringEndpoint)
+
+- name: luisAuthoringKey
+  displayName: LUIS authoring key
+  type: string
+  default: $(LUISAUTHORINGKEY)
+
+# LUIS Runtime (used to access LUIS while the bot is running)
+- name: luisEndpoint
+  displayName: LUIS endpoint
+  type: string
+  default: $(luis.endpoint)
+
+- name: luisEndpointKey
+  displayName: LUIS endpoint key
+  type: string
+  default: $(LUISENDPOINTKEY)
+
+# QnAMaker parameters
+- name: qnaSubscriptionKey
+  displayName: QnA Maker subscription key
+  type: string
+  default: $(QNASUBSCRIPTIONKEY)
+
+- name: qnaEndpointKey
+  displayName: QnA Maker endpoint key
+  type: string
+  default: $(QNAENDPOINTKEY)
+
+- name: qnaHostName
+  displayName: QnA Maker host name
+  type: string
+  default: $(qna.hostname)
+
+- name: qnaKnowledgebaseId
+  displayName: QnA Maker knowledgebase ID
+  type: string
+  default: $(QNAKNOWLEDGEBASEID)
+
+- name: qnaSourceKnowledgebaseId
+  displayName: QnA Maker source knowledgebase ID
+  type: string
+  default: $(QNASourceKNOWLEDGEBASEID)
+  
+- name: qnaSpanishSourceKnowledgebaseId
+  displayName: QnA Maker spanish source knowledgebase ID
+  type: string
+  default: $(QNASpanishSourceKNOWLEDGEBASEID)
+
+- name: qnaRegion
+  displayName: QnA Maker region
+  type: string
+  default: $(QNAREGION)
+  
+- name: lUISEndPointKEYSecret
+  displayName: lUISEndPointKEYSecret
+  type: string
+  
+- name: qnaMakerSubscriptionKeySecret
+  displayName: qnaMakerSubscriptionKeySecret
+  type: string
+  
+- name: aPPLICATIONINSIGHTS_CONNECTION_STRING
+  displayName: aPPLICATIONINSIGHTS_CONNECTION_STRING
+  type: string
+  
+- name: qnaMakerEndpointKeySecret
+  displayName: qnaMakerEndpointKeySecret
+  type: string
+  
+- name: bingSpellCheckKey
+  displayName: bingSpellCheckKey
+  type: string
+  
+- name: contentModeratorKey
+  displayName: contentModeratorKey
+  type: string
+  
+- name: qnaAppInsightsApiKey
+  displayName: QnA Maker qnaAppInsightsApiKey
+  type: string
+  
+- name: funcAppName
+  displayName: funcAppName
+  type: string
+  
+- name: funcProjectFile
+  displayName: funcProjectFile
+  type: string
+  default: $(FUNCPROJECTFILE)
+  
+- name: directlineKey
+  displayName: directlineKey
+  type: string
+  
+- name: RedisConnectionString
+  displayName: RedisConnectionString
+  type: string
+  
+- name: cosmosDBEndpoint
+  displayName: cosmosDBEndpoint
+  type: string
+
+- name: cosmosAuthKey
+  displayName: cosmosAuthKey
+  type: string
+
+  
+- name: directlineUri
+  displayName: directlineUri
+  type: string
+  default: $(DIRECTLINEURI)
+
+- name: deployModels
+  displayName: deployModels
+  type: string
+  default: $(deployModels)
+
+- name: deployWebApp
+  displayName: deployWebApp
+  type: string
+  default: $(deployWebApp)
+  
+steps:
+    # Install prerequisites
+    - template: templates/installPrerequisites.yaml
+
+    # Build and deploy LUIS and QnAMaker models 
+    - ${{ if eq(parameters.deployModels, 'yes' ) }}:
+      - template: templates/buildAndDeployModels.yaml
+        parameters:
+          sourceDirectory: "$(System.DefaultWorkingDirectory)/${{ parameters.botProjectDirectory }}"
+          botName: "${{ parameters.botName }}"
+          luisAuthoringKey: "${{ parameters.luisAuthoringKey }}"
+          luisAuthoringRegion: "${{ parameters.luisAuthoringRegion }}"
+          luisResourceGroup: "${{ parameters.resourceGroupName }}"
+          luisAuthoringEndpoint: "${{ parameters.luisAuthoringEndpoint }}"
+          luisPredictionResourceName: "${{parameters.luisPredictionResourceName}}"
+          qnaSubscriptionKey: "${{ parameters.qnaSubscriptionKey }}"
+          qnaSourceKbId: "${{ parameters.qnaSourceKnowledgebaseId }}"
+          knowledgeBasePath: "${{ parameters.knowledgeBasePath }}"
+          qnaSpanishSourceKbId: "${{ parameters.qnaSpanishSourceKnowledgebaseId }}"
+          spanishKnowledgeBasePath: "${{ parameters.spanishKnowledgeBasePath }}"
+
+    # Deploy and configure web app 
+    - ${{ if eq(parameters.deployWebApp, 'yes' ) }}:
+      - template: templates/buildAndDeployDotNetWebApp.yaml
+        parameters:
+          sourceDirectory: "$(System.DefaultWorkingDirectory)/${{ parameters.botProjectDirectory }}"
+          azureServiceConnection: "${{ parameters.azureServiceConnection }}"
+          webAppName: "${{ parameters.webAppName }}"
+          resourceGroupName: "${{ parameters.resourceGroupName }}"
+          botProjectFile: "$(System.DefaultWorkingDirectory)/${{ parameters.botProjectDirectory }}/${{ parameters.botProjectName }}"
+          botName: "${{ parameters.botName }}"
+          microsoftAppId: "${{ parameters.microsoftAppId }}"
+          luisEndpoint: "${{ parameters.luisEndpoint }}"
+          qnaHostName: "${{ parameters.qnaHostName }}"
+          qnaKnowledgebaseId: "${{ parameters.qnaKnowledgebaseId }}"
+          qnaRegion: "${{ parameters.qnaRegion }}"
+          microsoftAppPassword: "${{ parameters.microsoftAppPassword }}"
+          luisEndpointKey: "${{ parameters.lUISEndPointKEYSecret }}"
+          qnaSubscriptionKey: "${{ parameters.qnaMakerSubscriptionKeySecret }}"
+          qnaEndpointKey: "${{ parameters.qnaMakerEndpointKeySecret }}"
+          aPPLICATIONINSIGHTS_CONNECTION_STRING: "${{ parameters.aPPLICATIONINSIGHTS_CONNECTION_STRING }}"
+          bingSpellCheckKey: "${{ parameters.bingSpellCheckKey }}"
+          contentModeratorKey: "${{ parameters.contentModeratorKey }}"
+          qnaAppInsightsApiKey: "${{ parameters.qnaAppInsightsApiKey }}"
+          funcAppName: "${{ parameters.funcAppName }}"
+          funcProjectFile: "${{ parameters.funcProjectFile }}"
+          directlineKey: "${{ parameters.directlineKey }}"
+          directlineUri: "${{ parameters.directlineUri }}"
+          cosmosDBEndpoint: "${{ parameters.cosmosDBEndpoint }}"
+          cosmosAuthKey: "${{ parameters.cosmosAuthKey }}"
+          RedisConnectionString: "${{ parameters.RedisConnectionString }}"
