@@ -27,3 +27,5 @@ This sample code will enhance the existing CICD Pipeline for Bot Composer Framew
   **g.** LUIS limits the maximum number versions of the previous builds to 100 as per the Microsoft documentation at https://docs.microsoft.com/en-us/azure/cognitive-services/luis/luis-limits . This solution retains only the last five versions and deletes the older versions of the LUIS. This value can be configured based on the number of versions as needed.
   
   **h.** This solution also automates the creation of Prediction Resources for LUIS as per the documentation at https://docs.microsoft.com/en-us/azure/cognitive-services/luis/luis-how-to-azure-subscription?tabs=without-portal 
+  
+  Detailed article at https://lkgforit.com/create-a-cicd-pipeline-to-publish-your-bot-developed-in-bot-framework-composer
