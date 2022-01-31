@@ -15,9 +15,9 @@ This sample code will enhance the existing CICD Pipeline for Bot Composer Framew
   
   c. Enhances the QnA Maker deployment. 
   
-  d. Gives the user to choose the option to either deploy only web appliaction or the model files of LUIS and QnA Maker if required 
+  d. Gives user the option to either deploy only web appliaction or the model files of LUIS and QnA Maker if required 
   
-  e. Implements further secirity by demostrating how to pass key vault value to the app settings in the bot's appliaction configuration 
+  e. Implements further security by demostrating how to pass key vault value to the app settings in the bot's application configuration 
   
   f. Also this solution fixes a bug in the existing approach as stated in https://github.com/gabog/ComposerCICDSamples/pull/7 . The code fixes the "Cannot find path
     '/home/vsts/work/1/s/dialogs...' because it does not exist" from occurring due to the recognizers having names as substrings of another recognizer.
