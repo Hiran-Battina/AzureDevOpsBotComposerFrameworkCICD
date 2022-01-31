@@ -9,9 +9,14 @@ The Existing CICD approach can he found at https://github.com/gabog/ComposerCICD
 
 This sample code will enhance the existing CICD Pipeline for Bot Composer Framework further in the following ways: 
   a. Multi stage deployments are implemented for multiple environments.  
+  
   b. Importing the existing Knowledge Bases (KB) into the repository while deployment instead of manually adding the file. 
+  
   c. Enhances the QnA Maker deployment. 
+  
   d. Gives the user to choose the option to either deploy only web appliaction or the model files of LUIS and QnA Maker if required 
+  
   e. Implements further secirity by demostrating how to pass key vault value to the app settings in the bot's appliaction configuration 
+  
   f. Also this IP fixes a bug in the existing approach as stated in https://github.com/gabog/ComposerCICDSamples/pull/7 . The code fixes the "Cannot find path
     '/home/vsts/work/1/s/dialogs...' because it does not exist" from occurring due to the recognizers having names as substrings of another recognizer.
