@@ -1,11 +1,6 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 #
-# Starter pipeline
-# Minimal pipeline to deploy a basic assistant bot that you can customize to build and deploy your code.
-# Add steps that build, run tests, deploy, and more:
-# https://aka.ms/yaml
-#
 
 trigger:
   branches:
